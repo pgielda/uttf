@@ -32,7 +32,7 @@
 #include FT_GLYPH_H
 #include FT_TRUETYPE_IDS_H
 
-#include "SDL_ttf.h"
+#include "uttf.h"
 
 char last_error[1024] = { 0 };
 void TTF_SetError(const char *s) {

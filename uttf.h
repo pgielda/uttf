@@ -24,8 +24,8 @@
     http://www.freetype.org/
 */
 
-#ifndef _SDL_TTF_H
-#define _SDL_TTF_H
+#ifndef _UTTF_H
+#define _UTTF_H
 
 #include "SDL.h"
 #include "begin_code.h"
@@ -235,4 +235,4 @@ extern DECLSPEC int TTF_GetFontKerningSize(TTF_Font *font, int prev_index, int i
 #endif
 #include "close_code.h"
 
-#endif /* _SDL_TTF_H */
+#endif /* _UTTF_H */
