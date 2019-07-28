@@ -35,34 +35,6 @@
 extern "C" {
 #endif
 
-/* Printable format: "%d.%d.%d", MAJOR, MINOR, PATCHLEVEL
-*/
-#define SDL_TTF_MAJOR_VERSION   2
-#define SDL_TTF_MINOR_VERSION   0
-#define SDL_TTF_PATCHLEVEL      12
-
-/* This macro can be used to fill a version structure with the compile-time
- * version of the SDL_ttf library.
- */
-#define SDL_TTF_VERSION(X)                          \
-{                                                   \
-    (X)->major = SDL_TTF_MAJOR_VERSION;             \
-    (X)->minor = SDL_TTF_MINOR_VERSION;             \
-    (X)->patch = SDL_TTF_PATCHLEVEL;                \
-}
-
-/* Backwards compatibility */
-#define TTF_MAJOR_VERSION   SDL_TTF_MAJOR_VERSION
-#define TTF_MINOR_VERSION   SDL_TTF_MINOR_VERSION
-#define TTF_PATCHLEVEL      SDL_TTF_PATCHLEVEL
-#define TTF_VERSION(X)      SDL_TTF_VERSION(X)
-
-/* This function gets the version of the dynamically linked SDL_ttf library.
-   it should NOT be used to fill a version structure, instead you should
-   use the SDL_TTF_VERSION() macro.
- */
-extern DECLSPEC const SDL_version * SDLCALL TTF_Linked_Version(void);
-
 /* ZERO WIDTH NO-BREAKSPACE (Unicode byte order mark) */
 #define UNICODE_BOM_NATIVE  0xFEFF
 #define UNICODE_BOM_SWAPPED 0xFFFE
@@ -249,10 +221,6 @@ extern DECLSPEC int SDLCALL TTF_WasInit(void);
 
 /* Get the kerning size of two glyphs */
 extern DECLSPEC int TTF_GetFontKerningSize(TTF_Font *font, int prev_index, int index);
-
-/* We'll use SDL for reporting errors */
-#define TTF_SetError    SDL_SetError
-#define TTF_GetError    SDL_GetError
 
 /* Ends C function definitions when using C++ */
 #ifdef __cplusplus

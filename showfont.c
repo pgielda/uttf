@@ -281,7 +281,7 @@ int main(int argc, char *argv[])
                 text = TTF_RenderUNICODE_Shaded(font,
                     unicode_text, *forecol, *backcol);
             }
-            SDL_free(unicode_text);
+            free(unicode_text);
         }
         break;
         default:
