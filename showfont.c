@@ -65,6 +65,14 @@ static void cleanup(int exitcode)
     exit(exitcode);
 }
 
+Uint32 SDLColorToUint32(SDL_Color col) {
+	Uint32 result = col.b;
+	result |= col.g << 8;
+	result |= col.r << 16;
+	result |= col.a << 24;
+	return result;
+}
+
 int main(int argc, char *argv[])
 {
     char *argv0 = argv[0];
@@ -214,7 +222,7 @@ int main(int argc, char *argv[])
         for( i = 48; i < 123; i++ ) {
             SDL_Surface* glyph = NULL;
 
-            glyph = TTF_RenderGlyph_Shaded( font, i, *forecol, *backcol );
+            glyph = TTF_RenderGlyph_Shaded( font, i, SDLColorToUint32(*forecol), SDLColorToUint32(*backcol) );
 
             if( glyph ) {
                 char outname[64];
@@ -235,9 +243,9 @@ int main(int argc, char *argv[])
     /* Show which font file we're looking at */
     sprintf(string, "Font file: %s", argv[0]);  /* possible overflow */
     if ( rendersolid ) {
-        text = TTF_RenderText_Solid(font, string, *forecol);
+        text = TTF_RenderText_Solid(font, string, SDLColorToUint32(*forecol));
     } else {
-        text = TTF_RenderText_Shaded(font, string, *forecol, *backcol);
+        text = TTF_RenderText_Shaded(font, string, SDLColorToUint32(*forecol), SDLColorToUint32(*backcol));
     }
     if ( text != NULL ) {
         scene.captionRect.x = 4;
@@ -257,17 +265,17 @@ int main(int argc, char *argv[])
     switch (rendertype) {
         case RENDER_LATIN1:
         if ( rendersolid ) {
-            text = TTF_RenderText_Solid(font,message,*forecol);
+            text = TTF_RenderText_Solid(font,message,SDLColorToUint32(*forecol));
         } else {
-            text = TTF_RenderText_Shaded(font,message,*forecol,*backcol);
+            text = TTF_RenderText_Shaded(font,message,SDLColorToUint32(*forecol),SDLColorToUint32(*backcol));
         }
         break;
 
         case RENDER_UTF8:
         if ( rendersolid ) {
-            text = TTF_RenderUTF8_Solid(font,message,*forecol);
+            text = TTF_RenderUTF8_Solid(font,message,SDLColorToUint32(*forecol));
         } else {
-            text = TTF_RenderUTF8_Shaded(font,message,*forecol,*backcol);
+            text = TTF_RenderUTF8_Shaded(font,message,SDLColorToUint32(*forecol),SDLColorToUint32(*backcol));
         }
         break;
 
@@ -276,10 +284,10 @@ int main(int argc, char *argv[])
             Uint16 *unicode_text = SDL_iconv_utf8_ucs2(message);
             if ( rendersolid ) {
                 text = TTF_RenderUNICODE_Solid(font,
-                    unicode_text, *forecol);
+                    unicode_text, SDLColorToUint32(*forecol));
             } else {
                 text = TTF_RenderUNICODE_Shaded(font,
-                    unicode_text, *forecol, *backcol);
+                    unicode_text, SDLColorToUint32(*forecol), SDLColorToUint32(*backcol));
             }
             free(unicode_text);
         }
