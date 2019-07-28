@@ -27,7 +27,7 @@
 #ifndef _UTTF_H
 #define _UTTF_H
 
-#include "SDL.h"
+//#include "SDL.h"
 #include "begin_code.h"
 
 /* Set up for C function definitions, even when using C++ */
@@ -39,12 +39,12 @@ extern "C" {
 #define UNICODE_BOM_NATIVE  0xFEFF
 #define UNICODE_BOM_SWAPPED 0xFFFE
 
-/*
-TODO: replace all
 #define Uint8 uint8_t
 #define Uint16 uint16_t
 #define Uint32 uint32_t
-*/
+#define Sint32 int32_t
+#define Sint64 int64_t
+#define SDL_Surface Uint8
 
 /* This function tells the library whether UNICODE text is generally
    byteswapped.  A UNICODE BOM character in a string will override
@@ -234,5 +234,5 @@ extern DECLSPEC int TTF_GetFontKerningSize(TTF_Font *font, int prev_index, int i
 }
 #endif
 #include "close_code.h"
-
+#undef SDL_Surface
 #endif /* _UTTF_H */

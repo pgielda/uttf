@@ -34,6 +34,16 @@
 
 #include "uttf.h"
 
+#define SDL_Surface Uint8
+#define SDL_SWSURFACE 0
+
+Uint8 *SDL_CreateRGBSurface(int tp, int width, int heigth, int depth, int unused0, int unused1, int unused2, int unused3) {
+	return (Uint8*)malloc(width*heigth*4); // TODO
+}
+void SDL_FreeSurface(Uint8 *ptr) {
+	free(ptr);
+}
+
 char last_error[1024] = { 0 };
 void TTF_SetError(const char *s) {
 	strcpy(last_error, s);
