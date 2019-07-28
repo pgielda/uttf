@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
     scene.messageRect.h = text->h;
     scene.message = SDL_CreateTextureFromSurface(renderer, text);
     printf("Font is generally %d big, and string is %hd big\n",
-                        TTF_FontHeight(font), text->h);
+                        TTF_FontHeight(font), (short)text->h);
 
     draw_scene(renderer, &scene);
 

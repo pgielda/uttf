@@ -1,4 +1,6 @@
 /*
+  uttf - a fork of SDL_ttf that is not dependant on SDL.
+
   SDL_ttf:  A companion library to SDL for working with TrueType (tm) fonts
   Copyright (C) 2001-2013 Sam Lantinga <slouken@libsdl.org>
 
@@ -32,9 +34,18 @@
 
 #include "SDL_ttf.h"
 
-char last_error[1024];
+char last_error[1024] = { 0 };
 void TTF_SetError(const char *s) {
 	strcpy(last_error, s);
+}
+char *TTF_GetError() {
+	if (last_error[0] == 0) return "No error";
+	return last_error;
+}
+
+Uint16 TTF_Swap16(Uint16 x)
+{
+    return (Uint16)((x << 8) | (x >> 8));
 }
 
 #define TTF_OutOfMemory() TTF_SetError("Out of memory")
@@ -49,7 +60,6 @@ TODO: missing
 _SDL_CreateRGBSurface
 _SDL_FillRect
 _SDL_FreeSurface
-_SDL_RWFromFile
 _SDL_SetColorKey
 */
 
@@ -113,7 +123,7 @@ struct _TTF_Font {
     c_glyph cache[257]; /* 257 is a prime */
 
     /* We are responsible for closing the font stream */
-    SDL_RWops *src;
+    FILE *src;
     int freesrc;
     FT_Open_Args args;
 
@@ -366,17 +376,17 @@ static unsigned long RWread(
     unsigned long count
 )
 {
-    SDL_RWops *src;
+    FILE *src;
 
-    src = (SDL_RWops *)stream->descriptor.pointer;
-    SDL_RWseek( src, (int)offset, RW_SEEK_SET );
+    src = (FILE*)stream->descriptor.pointer;
+    fseek( src, (int)offset, SEEK_SET ); // TODO
     if ( count == 0 ) {
         return 0;
     }
-    return (unsigned long)SDL_RWread( src, buffer, 1, (int)count );
+    return (unsigned long)fread( buffer, 1, (int)count, src );
 }
 
-TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long index )
+TTF_Font* TTF_OpenFontIndexRW( FILE *src, int freesrc, int ptsize, long index )
 {
     TTF_Font* font;
     FT_Error error;
@@ -390,7 +400,7 @@ TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long ind
     if ( ! TTF_initialized ) {
         TTF_SetError( "Library not initialized" );
         if ( src && freesrc ) {
-            SDL_RWclose( src );
+            fclose( src );
         }
         return NULL;
     }
@@ -401,20 +411,23 @@ TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long ind
     }
 
     /* Check to make sure we can seek in this stream */
-    position = SDL_RWtell(src);
+    position = ftell(src);
     if ( position < 0 ) {
         TTF_SetError( "Can't seek in stream" );
         if ( freesrc ) {
-            SDL_RWclose( src );
+            fclose( src );
         }
         return NULL;
     }
+    fseek(src, 0, SEEK_END);
+    Sint64 fsize = ftell(src);
+    fseek(src, (int)position, SEEK_SET);
 
     font = (TTF_Font*) malloc(sizeof *font);
     if ( font == NULL ) {
         TTF_SetError( "Out of memory" );
         if ( freesrc ) {
-            SDL_RWclose( src );
+            fclose( src );
         }
         return NULL;
     }
@@ -434,7 +447,7 @@ TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long ind
     stream->read = RWread;
     stream->descriptor.pointer = src;
     stream->pos = (unsigned long)position;
-    stream->size = (unsigned long)(SDL_RWsize(src) - position);
+    stream->size = (unsigned long)(fsize - position);
 
     font->args.flags = FT_OPEN_STREAM;
     font->args.stream = stream;
@@ -550,14 +563,14 @@ TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long ind
     return font;
 }
 
-TTF_Font* TTF_OpenFontRW( SDL_RWops *src, int freesrc, int ptsize )
+TTF_Font* TTF_OpenFontRW( FILE *src, int freesrc, int ptsize )
 {
     return TTF_OpenFontIndexRW(src, freesrc, ptsize, 0);
 }
 
 TTF_Font* TTF_OpenFontIndex( const char *file, int ptsize, long index )
 {
-    SDL_RWops *rw = SDL_RWFromFile(file, "rb");
+    FILE *rw = fopen(file, "rb");
     if ( rw == NULL ) {
         TTF_SetError("Cannot open file");
         return NULL;
@@ -940,7 +953,7 @@ void TTF_CloseFont( TTF_Font* font )
             free( font->args.stream );
         }
         if ( font->freesrc ) {
-            SDL_RWclose( font->src );
+            fclose( font->src );
         }
         free( font );
     }
@@ -987,7 +1000,7 @@ static void UCS2_to_UTF8(const Uint16 *src, Uint8 *dst)
             continue;
         }
         if (swapped) {
-            ch = SDL_Swap16(ch);
+            ch = TTF_Swap16(ch);
         }
         if (ch <= 0x7F) {
             *dst++ = (Uint8) ch;
@@ -1009,8 +1022,8 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
 {
     const Uint8 *p = *(const Uint8**)src;
     size_t left = 0;
-    SDL_bool overlong = SDL_FALSE;
-    SDL_bool underflow = SDL_FALSE;
+    int overlong = 0;
+    int underflow = 0;
     Uint32 ch = UNKNOWN_UNICODE;
 
     if (*srclen == 0) {
@@ -1019,7 +1032,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     if (p[0] >= 0xFC) {
         if ((p[0] & 0xFE) == 0xFC) {
             if (p[0] == 0xFC && (p[1] & 0xFC) == 0x80) {
-                overlong = SDL_TRUE;
+                overlong = 1;
             }
             ch = (Uint32) (p[0] & 0x01);
             left = 5;
@@ -1027,7 +1040,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xF8) {
         if ((p[0] & 0xFC) == 0xF8) {
             if (p[0] == 0xF8 && (p[1] & 0xF8) == 0x80) {
-                overlong = SDL_TRUE;
+                overlong = 1;
             }
             ch = (Uint32) (p[0] & 0x03);
             left = 4;
@@ -1035,7 +1048,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xF0) {
         if ((p[0] & 0xF8) == 0xF0) {
             if (p[0] == 0xF0 && (p[1] & 0xF0) == 0x80) {
-                overlong = SDL_TRUE;
+                overlong = 1;
             }
             ch = (Uint32) (p[0] & 0x07);
             left = 3;
@@ -1043,7 +1056,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xE0) {
         if ((p[0] & 0xF0) == 0xE0) {
             if (p[0] == 0xE0 && (p[1] & 0xE0) == 0x80) {
-                overlong = SDL_TRUE;
+                overlong = 1;
             }
             ch = (Uint32) (p[0] & 0x0F);
             left = 2;
@@ -1051,7 +1064,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xC0) {
         if ((p[0] & 0xE0) == 0xC0) {
             if ((p[0] & 0xDE) == 0xC0) {
-                overlong = SDL_TRUE;
+                overlong = 1;
             }
             ch = (Uint32) (p[0] & 0x1F);
             left = 1;
@@ -1076,7 +1089,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
         --left;
     }
     if (left > 0) {
-        underflow = SDL_TRUE;
+        underflow = 1;
     }
     /* Technically overlong sequences are invalid and should not be interpreted.
        However, it doesn't cause a security risk here and I don't see any harm in
@@ -1404,7 +1417,7 @@ SDL_Surface *TTF_RenderUTF8_Solid(TTF_Font *font,
     palette->colors[1].r = cl_r(fg);
     palette->colors[1].g = cl_g(fg);
     palette->colors[1].b = cl_b(fg);
-    SDL_SetColorKey( textbuf, SDL_TRUE, 0 );
+    //SDL_SetColorKey( textbuf, SDL_TRUE, 0 );
 
     /* check kerning */
     use_kerning = FT_HAS_KERNING( font->face ) && font->kerning;
@@ -1880,15 +1893,15 @@ SDL_Surface *TTF_RenderText_Blended_Wrapped(TTF_Font *font, const char *text, Ui
     return surface;
 }
 
-static SDL_bool CharacterIsDelimiter(char c, const char *delimiters)
+static int CharacterIsDelimiter(char c, const char *delimiters)
 {
     while (*delimiters) {
         if (c == *delimiters) {
-            return SDL_TRUE;
+            return 1;
         }
         ++delimiters;
     }
-    return SDL_FALSE;
+    return 0;
 }
 
 SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,

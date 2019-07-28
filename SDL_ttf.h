@@ -39,6 +39,13 @@ extern "C" {
 #define UNICODE_BOM_NATIVE  0xFEFF
 #define UNICODE_BOM_SWAPPED 0xFFFE
 
+/*
+TODO: replace all
+#define Uint8 uint8_t
+#define Uint16 uint16_t
+#define Uint32 uint32_t
+*/
+
 /* This function tells the library whether UNICODE text is generally
    byteswapped.  A UNICODE BOM character in a string will override
    this setting for the remainder of that string.
@@ -57,8 +64,8 @@ extern DECLSPEC int SDLCALL TTF_Init(void);
  * is too high, the last indexed size will be the default. */
 extern DECLSPEC TTF_Font * SDLCALL TTF_OpenFont(const char *file, int ptsize);
 extern DECLSPEC TTF_Font * SDLCALL TTF_OpenFontIndex(const char *file, int ptsize, long index);
-extern DECLSPEC TTF_Font * SDLCALL TTF_OpenFontRW(SDL_RWops *src, int freesrc, int ptsize);
-extern DECLSPEC TTF_Font * SDLCALL TTF_OpenFontIndexRW(SDL_RWops *src, int freesrc, int ptsize, long index);
+extern DECLSPEC TTF_Font * SDLCALL TTF_OpenFontRW(FILE *src, int freesrc, int ptsize);
+extern DECLSPEC TTF_Font * SDLCALL TTF_OpenFontIndexRW(FILE *src, int freesrc, int ptsize, long index);
 
 /* Set and retrieve the font style */
 #define TTF_STYLE_NORMAL        0x00
