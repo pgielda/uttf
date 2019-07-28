@@ -1,4 +1,7 @@
 /*
+  uttf - a fork of SDL_ttf that is not dependant on SDL/SDL2 but provides
+         a similar api.
+
   SDL_ttf:  A companion library to SDL for working with TrueType (tm) fonts
   Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
 

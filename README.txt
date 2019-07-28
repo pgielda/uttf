@@ -1,4 +1,6 @@
 
+uttf - a fork of SDL_ttf that is not dependant on SDL.
+
 This library is a wrapper around the excellent FreeType 2.0 library,
 available at:
 	http://www.freetype.org/
