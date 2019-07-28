@@ -29,7 +29,7 @@
 #include <string.h>
 
 #include "SDL.h"
-#include "SDL_ttf.h"
+#include "uttf.h"
 
 #define DEFAULT_PTSIZE  18
 #define DEFAULT_TEXT    "The quick brown fox jumped over the lazy dog"
