@@ -21,6 +21,7 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,23 +35,43 @@
 
 #include "uttf.h"
 
-#define SDL_Surface Uint8
-#define SDL_SWSURFACE 0
+#include "SDL.h"
 
-Uint8 *SDL_CreateRGBSurface(int tp, int width, int heigth, int depth, int unused0, int unused1, int unused2, int unused3) {
-	return (Uint8*)malloc(width*heigth*4); // TODO
-}
-void SDL_FreeSurface(Uint8 *ptr) {
-	free(ptr);
+Uint8 *TTF_CreateRGBSurface(int width, int heigth, int depth, int unused0, int unused1, int unused2, int unused3) {
+        int pitch = ((width % 4) == 0) ? width : (width + (4 - (width % 4)));
+	pitch *= (depth / 8);
+	Uint8* fn_surf = (Uint8*)malloc(8+pitch*heigth);
+        fn_set_w(fn_surf, width);
+        fn_set_h(fn_surf, heigth);
+	fn_set_d(fn_surf, depth);
+	fn_set_p(fn_surf, pitch);
+/*        printf("Creating surface of w,h=%d %d, depth=%d pitch=%d\n", width, heigth, depth, fn_p(fn_surf));
+	SDL_Surface *s = SDL_CreateRGBSurface(SDL_SWSURFACE, width, heigth, depth, unused0, unused1, unused2, unused3);
+	printf("SDL COMPARISON: s->pitch = %d, s->width = %d, s->heigth=%d\n", s->pitch, s->w, s->h);
+	SDL_FreeSurface(s);*/
+        return fn_surf;
 }
 
 char last_error[1024] = { 0 };
 void TTF_SetError(const char *s) {
+	printf("Error set to '%s'\n", s);
 	strcpy(last_error, s);
 }
 char *TTF_GetError() {
 	if (last_error[0] == 0) return "No error";
 	return last_error;
+}
+
+void TTF_FillRect(Uint8 *srf, Uint32 pixel) {
+	// TODO: this is wrong !
+	printf("TTF_FillRect pixel = %X pitch=%d depth=%d\n", pixel, fn_p(srf), fn_d(srf));
+	Uint32 *pixels = (Uint32*)(srf + 8);
+	int i = 0;
+	for (int y = 0; y < fn_h(srf); y++) {
+		for (int x = 0; x < fn_w(srf); x++) {
+			pixels[i++] = pixel;
+		}
+	}
 }
 
 Uint16 TTF_Swap16(Uint16 x)
@@ -59,19 +80,6 @@ Uint16 TTF_Swap16(Uint16 x)
 }
 
 #define TTF_OutOfMemory() TTF_SetError("Out of memory")
-
-#define cl_g(color) (((color & 0x0000FF00) >> 8) & 0xFF)
-#define cl_r(color) (((color & 0x00FF0000) >> 16) & 0xFF)
-#define cl_b(color) (((color & 0x000000FF) & 0xFF))
-#define cl_a(color) (((color & 0xFF000000) >> 24) & 0xFF)
-
-/*
-TODO: missing
-_SDL_CreateRGBSurface
-_SDL_FillRect
-_SDL_FreeSurface
-_SDL_SetColorKey
-*/
 
 /* FIXME: Right now we assume the gray-scale renderer Freetype is using
    supports 256 shades of gray, but we should instead key off of num_grays
@@ -234,14 +242,14 @@ static __inline__ int TTF_Glyph_strikethrough_top_row(TTF_Font *font, c_glyph *g
     return TTF_strikethrough_top_row(font) - font->ascent + glyph->maxy;
 }
 
-static void TTF_initLineMectrics(const TTF_Font *font, const SDL_Surface *textbuf, const int row, Uint8 **pdst, int *pheight)
+static void TTF_initLineMectrics(const TTF_Font *font, const Uint8 *textbuf, const int row, Uint8 **pdst, int *pheight)
 {
     Uint8 *dst;
     int height;
 
-    dst = (Uint8 *)textbuf->pixels;
+    dst = (Uint8 *)(textbuf + 8);
     if ( row > 0 ) {
-        dst += row * textbuf->pitch;
+        dst += row * fn_p(textbuf);
     }
 
     height = font->underline_height;
@@ -257,10 +265,10 @@ static void TTF_initLineMectrics(const TTF_Font *font, const SDL_Surface *textbu
    at the given row. The row value must take the
    outline into account.
 */
-static void TTF_drawLine_Solid(const TTF_Font *font, const SDL_Surface *textbuf, const int row)
+static void TTF_drawLine_Solid(const TTF_Font *font, const Uint8 *textbuf, const int row)
 {
     int line;
-    Uint8 *dst_check = (Uint8*)textbuf->pixels + textbuf->pitch * textbuf->h;
+    Uint8 *dst_check = (Uint8*)(textbuf+4) + fn_p(textbuf) * fn_h(textbuf);
     Uint8 *dst;
     int height;
 
@@ -269,8 +277,8 @@ static void TTF_drawLine_Solid(const TTF_Font *font, const SDL_Surface *textbuf,
     /* Draw line */
     for ( line=height; line>0 && dst < dst_check; --line ) {
         /* 1 because 0 is the bg color */
-        memset( dst, 1, textbuf->w );
-        dst += textbuf->pitch;
+        memset( dst, 1, fn_w(textbuf) );
+        dst += fn_p(textbuf);
     }
 }
 
@@ -278,10 +286,10 @@ static void TTF_drawLine_Solid(const TTF_Font *font, const SDL_Surface *textbuf,
    at the given row. The row value must take the
    outline into account.
 */
-static void TTF_drawLine_Shaded(const TTF_Font *font, const SDL_Surface *textbuf, const int row)
+static void TTF_drawLine_Shaded(const TTF_Font *font, const Uint8 *textbuf, const int row)
 {
     int line;
-    Uint8 *dst_check = (Uint8*)textbuf->pixels + textbuf->pitch * textbuf->h;
+    Uint8 *dst_check = (Uint8*)(textbuf+4) + fn_p(textbuf) * fn_h(textbuf);
     Uint8 *dst;
     int height;
 
@@ -289,8 +297,8 @@ static void TTF_drawLine_Shaded(const TTF_Font *font, const SDL_Surface *textbuf
 
     /* Draw line */
     for ( line=height; line>0 && dst < dst_check; --line ) {
-        memset( dst, NUM_GRAYS - 1, textbuf->w );
-        dst += textbuf->pitch;
+        memset( dst, NUM_GRAYS - 1, fn_w(textbuf) );
+        dst += fn_p(textbuf);
     }
 }
 
@@ -298,10 +306,10 @@ static void TTF_drawLine_Shaded(const TTF_Font *font, const SDL_Surface *textbuf
    at the given row. The row value must take the
    outline into account.
 */
-static void TTF_drawLine_Blended(const TTF_Font *font, const SDL_Surface *textbuf, const int row, const Uint32 color)
+static void TTF_drawLine_Blended(const TTF_Font *font, const Uint8 *textbuf, const int row, const Uint32 color)
 {
     int line;
-    Uint32 *dst_check = (Uint32*)textbuf->pixels + textbuf->pitch/4 * textbuf->h;
+    Uint32 *dst_check = (Uint32*)(textbuf + 8) + fn_p(textbuf)/4 * fn_h(textbuf);
     Uint8 *dst8; /* destination, byte version */
     Uint32 *dst;
     int height;
@@ -313,10 +321,10 @@ static void TTF_drawLine_Blended(const TTF_Font *font, const SDL_Surface *textbu
 
     /* Draw line */
     for ( line=height; line>0 && dst < dst_check; --line ) {
-        for ( col=0; col < textbuf->w; ++col ) {
+        for ( col=0; col < fn_w(textbuf); ++col ) {
             dst[col] = pixel;
         }
-        dst += textbuf->pitch/4;
+        dst += fn_p(textbuf)/4;
     }
 }
 
@@ -582,7 +590,9 @@ TTF_Font* TTF_OpenFontIndex( const char *file, int ptsize, long index )
 {
     FILE *rw = fopen(file, "rb");
     if ( rw == NULL ) {
-        TTF_SetError("Cannot open file");
+	char s[1024];
+	sprintf(s, "Cannot open file '%s'", file);
+        TTF_SetError(s);
         return NULL;
     }
     return TTF_OpenFontIndexRW(rw, 1, ptsize, index);
@@ -1361,10 +1371,10 @@ int TTF_SizeUNICODE(TTF_Font *font, const Uint16 *text, int *w, int *h)
     return status;
 }
 
-SDL_Surface *TTF_RenderText_Solid(TTF_Font *font,
+Uint8 *TTF_RenderText_Solid(TTF_Font *font,
                 const char *text, Uint32 fg)
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -1380,15 +1390,15 @@ SDL_Surface *TTF_RenderText_Solid(TTF_Font *font,
     return surface;
 }
 
-SDL_Surface *TTF_RenderUTF8_Solid(TTF_Font *font,
+Uint8 *TTF_RenderUTF8_Solid(TTF_Font *font,
                 const char *text, Uint32 fg)
 {
     int first;
     int xstart;
     int width;
     int height;
-    SDL_Surface* textbuf;
-    SDL_Palette* palette;
+    Uint8* textbuf;
+    //SDL_Palette* palette;
     Uint8* src;
     Uint8* dst;
     Uint8 *dst_check;
@@ -1410,23 +1420,24 @@ SDL_Surface *TTF_RenderUTF8_Solid(TTF_Font *font,
     }
 
     /* Create the target surface */
-    textbuf = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 8, 0, 0, 0, 0);
+    textbuf = TTF_CreateRGBSurface(width, height, 8, 0, 0, 0, 0);
     if ( textbuf == NULL ) {
         return NULL;
     }
 
     /* Adding bound checking to avoid all kinds of memory corruption errors
        that may occur. */
-    dst_check = (Uint8*)textbuf->pixels + textbuf->pitch * textbuf->h;
+    dst_check = (Uint8*)(textbuf + 8) + fn_p(textbuf) * fn_h(textbuf);
 
+    printf("here was palette! %s\n", __func__);
     /* Fill the palette with the foreground color */
-    palette = textbuf->format->palette;
-    palette->colors[0].r = 255 - cl_r(fg);
-    palette->colors[0].g = 255 - cl_g(fg);
-    palette->colors[0].b = 255 - cl_b(fg);
-    palette->colors[1].r = cl_r(fg);
-    palette->colors[1].g = cl_g(fg);
-    palette->colors[1].b = cl_b(fg);
+    //palette = textbuf->format->palette;
+    //palette->colors[0].r = 255 - cl_r(fg);
+    //palette->colors[0].g = 255 - cl_g(fg);
+    //palette->colors[0].b = 255 - cl_b(fg);
+    //palette->colors[1].r = cl_r(fg);
+    //palette->colors[1].g = cl_g(fg);
+    //palette->colors[1].b = cl_b(fg);
     //SDL_SetColorKey( textbuf, SDL_TRUE, 0 );
 
     /* check kerning */
@@ -1445,7 +1456,7 @@ SDL_Surface *TTF_RenderUTF8_Solid(TTF_Font *font,
         error = Find_Glyph(font, c, CACHED_METRICS|CACHED_BITMAP);
         if ( error ) {
             TTF_SetFTError("Couldn't find glyph", error);
-            SDL_FreeSurface( textbuf );
+            free( textbuf );
             return NULL;
         }
         glyph = font->current;
@@ -1474,11 +1485,11 @@ SDL_Surface *TTF_RenderUTF8_Solid(TTF_Font *font,
             if ( row+glyph->yoffset < 0 ) {
                 continue;
             }
-            if ( row+glyph->yoffset >= textbuf->h ) {
+            if ( row+glyph->yoffset >= fn_h(textbuf) ) {
                 continue;
             }
-            dst = (Uint8*) textbuf->pixels +
-                (row+glyph->yoffset) * textbuf->pitch +
+            dst = (Uint8*) (textbuf + 8) +
+                (row+glyph->yoffset) * fn_p(textbuf) +
                 xstart + glyph->minx;
             src = current->buffer + row * current->pitch;
 
@@ -1508,10 +1519,10 @@ SDL_Surface *TTF_RenderUTF8_Solid(TTF_Font *font,
     return textbuf;
 }
 
-SDL_Surface *TTF_RenderUNICODE_Solid(TTF_Font *font,
+Uint8 *TTF_RenderUNICODE_Solid(TTF_Font *font,
                 const Uint16 *text, Uint32 fg)
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -1527,7 +1538,7 @@ SDL_Surface *TTF_RenderUNICODE_Solid(TTF_Font *font,
     return surface;
 }
 
-SDL_Surface *TTF_RenderGlyph_Solid(TTF_Font *font, Uint16 ch, Uint32 fg)
+Uint8 *TTF_RenderGlyph_Solid(TTF_Font *font, Uint16 ch, Uint32 fg)
 {
     Uint16 ucs2[2] = { ch, 0 };
     Uint8 utf8[4];
@@ -1536,10 +1547,10 @@ SDL_Surface *TTF_RenderGlyph_Solid(TTF_Font *font, Uint16 ch, Uint32 fg)
     return TTF_RenderUTF8_Solid(font, (char *)utf8, fg);
 }
 
-SDL_Surface *TTF_RenderText_Shaded(TTF_Font *font,
+Uint8 *TTF_RenderText_Shaded(TTF_Font *font,
                 const char *text, Uint32 fg, Uint32 bg)
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -1557,15 +1568,15 @@ SDL_Surface *TTF_RenderText_Shaded(TTF_Font *font,
 
 /* Convert the UTF-8 text to UNICODE and render it
 */
-SDL_Surface *TTF_RenderUTF8_Shaded(TTF_Font *font,
+Uint8 *TTF_RenderUTF8_Shaded(TTF_Font *font,
                 const char *text, Uint32 fg, Uint32 bg)
 {
     int first;
     int xstart;
     int width;
     int height;
-    SDL_Surface* textbuf;
-    SDL_Palette* palette;
+    Uint8* textbuf;
+    //SDL_Palette* palette;
     int index;
     int rdiff;
     int gdiff;
@@ -1590,25 +1601,27 @@ SDL_Surface *TTF_RenderUTF8_Shaded(TTF_Font *font,
     }
 
     /* Create the target surface */
-    textbuf = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 8, 0, 0, 0, 0);
+    textbuf = TTF_CreateRGBSurface(width, height, 8, 0, 0, 0, 0);
     if ( textbuf == NULL ) {
         return NULL;
     }
 
     /* Adding bound checking to avoid all kinds of memory corruption errors
        that may occur. */
-    dst_check = (Uint8*)textbuf->pixels + textbuf->pitch * textbuf->h;
+    dst_check = (Uint8*)(textbuf + 8) + fn_p(textbuf) * fn_h(textbuf);
 
+    printf("here was palette! %s\n", __func__);
     /* Fill the palette with NUM_GRAYS levels of shading from bg to fg */
-    palette = textbuf->format->palette;
+    //palette = textbuf->format->palette;
     rdiff = cl_r(fg) - cl_r(bg);
     gdiff = cl_g(fg) - cl_g(bg);
     bdiff = cl_b(fg) - cl_b(bg);
 
+    printf("NUM_GRAYS = %d\n", NUM_GRAYS);
     for ( index = 0; index < NUM_GRAYS; ++index ) {
-        palette->colors[index].r = cl_r(bg) + (index*rdiff) / (NUM_GRAYS-1);
-        palette->colors[index].g = cl_g(bg) + (index*gdiff) / (NUM_GRAYS-1);
-        palette->colors[index].b = cl_b(bg) + (index*bdiff) / (NUM_GRAYS-1);
+        //palette->colors[index].r = cl_r(bg) + (index*rdiff) / (NUM_GRAYS-1);
+        //palette->colors[index].g = cl_g(bg) + (index*gdiff) / (NUM_GRAYS-1);
+        //palette->colors[index].b = cl_b(bg) + (index*bdiff) / (NUM_GRAYS-1);
     }
 
     /* check kerning */
@@ -1627,7 +1640,7 @@ SDL_Surface *TTF_RenderUTF8_Shaded(TTF_Font *font,
         error = Find_Glyph(font, c, CACHED_METRICS|CACHED_PIXMAP);
         if ( error ) {
             TTF_SetFTError("Couldn't find glyph", error);
-            SDL_FreeSurface( textbuf );
+            free( textbuf );
             return NULL;
         }
         glyph = font->current;
@@ -1656,11 +1669,11 @@ SDL_Surface *TTF_RenderUTF8_Shaded(TTF_Font *font,
             if ( row+glyph->yoffset < 0 ) {
                 continue;
             }
-            if ( row+glyph->yoffset >= textbuf->h ) {
+            if ( row+glyph->yoffset >= fn_h(textbuf) ) {
                 continue;
             }
-            dst = (Uint8*) textbuf->pixels +
-                (row+glyph->yoffset) * textbuf->pitch +
+            dst = (Uint8*) (textbuf + 8) +
+                (row+glyph->yoffset) * fn_p(textbuf) +
                 xstart + glyph->minx;
             src = current->buffer + row * current->pitch;
             for ( col=width; col>0 && dst < dst_check; --col ) {
@@ -1689,12 +1702,12 @@ SDL_Surface *TTF_RenderUTF8_Shaded(TTF_Font *font,
     return textbuf;
 }
 
-SDL_Surface* TTF_RenderUNICODE_Shaded( TTF_Font* font,
+Uint8* TTF_RenderUNICODE_Shaded( TTF_Font* font,
                        const Uint16* text,
                        Uint32 fg,
                        Uint32 bg )
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -1710,7 +1723,7 @@ SDL_Surface* TTF_RenderUNICODE_Shaded( TTF_Font* font,
     return surface;
 }
 
-SDL_Surface* TTF_RenderGlyph_Shaded( TTF_Font* font,
+Uint8* TTF_RenderGlyph_Shaded( TTF_Font* font,
                      Uint16 ch,
                      Uint32 fg,
                      Uint32 bg )
@@ -1722,10 +1735,10 @@ SDL_Surface* TTF_RenderGlyph_Shaded( TTF_Font* font,
     return TTF_RenderUTF8_Shaded(font, (char *)utf8, fg, bg);
 }
 
-SDL_Surface *TTF_RenderText_Blended(TTF_Font *font,
+Uint8 *TTF_RenderText_Blended(TTF_Font *font,
                 const char *text, Uint32 fg)
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -1741,13 +1754,13 @@ SDL_Surface *TTF_RenderText_Blended(TTF_Font *font,
     return surface;
 }
 
-SDL_Surface *TTF_RenderUTF8_Blended(TTF_Font *font,
+Uint8 *TTF_RenderUTF8_Blended(TTF_Font *font,
                 const char *text, Uint32 fg)
 {
     int first;
     int xstart;
     int width, height;
-    SDL_Surface *textbuf;
+    Uint8 *textbuf;
     Uint32 alpha;
     Uint32 pixel;
     Uint8 *src;
@@ -1769,7 +1782,7 @@ SDL_Surface *TTF_RenderUTF8_Blended(TTF_Font *font,
     }
 
     /* Create the target surface */
-    textbuf = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 32,
+    textbuf = TTF_CreateRGBSurface(width, height, 32,
                                0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     if ( textbuf == NULL ) {
         return(NULL);
@@ -1777,7 +1790,7 @@ SDL_Surface *TTF_RenderUTF8_Blended(TTF_Font *font,
 
     /* Adding bound checking to avoid all kinds of memory corruption errors
        that may occur. */
-    dst_check = (Uint32*)textbuf->pixels + textbuf->pitch/4 * textbuf->h;
+    dst_check = (Uint32*)(textbuf + 8) + fn_p(textbuf)/4 * fn_h(textbuf);
 
     /* check kerning */
     use_kerning = FT_HAS_KERNING( font->face ) && font->kerning;
@@ -1788,7 +1801,7 @@ SDL_Surface *TTF_RenderUTF8_Blended(TTF_Font *font,
     first = 1;
     xstart = 0;
     pixel = fg & 0x00FFFFFF;
-    SDL_FillRect(textbuf, NULL, pixel); /* Initialize with fg and 0 alpha */
+    TTF_FillRect(textbuf, pixel);
     while ( textlen > 0 ) {
         Uint16 c = UTF8_getch(&text, &textlen);
         if ( c == UNICODE_BOM_NATIVE || c == UNICODE_BOM_SWAPPED ) {
@@ -1798,7 +1811,7 @@ SDL_Surface *TTF_RenderUTF8_Blended(TTF_Font *font,
         error = Find_Glyph(font, c, CACHED_METRICS|CACHED_PIXMAP);
         if ( error ) {
             TTF_SetFTError("Couldn't find glyph", error);
-            SDL_FreeSurface( textbuf );
+            free( textbuf );
             return NULL;
         }
         glyph = font->current;
@@ -1827,11 +1840,11 @@ SDL_Surface *TTF_RenderUTF8_Blended(TTF_Font *font,
             if ( row+glyph->yoffset < 0 ) {
                 continue;
             }
-            if ( row+glyph->yoffset >= textbuf->h ) {
+            if ( row+glyph->yoffset >= fn_h(textbuf) ) {
                 continue;
             }
-            dst = (Uint32*) textbuf->pixels +
-                (row+glyph->yoffset) * textbuf->pitch/4 +
+            dst = (Uint32*) (textbuf + 8) +
+                (row+glyph->yoffset) * fn_p(textbuf)/4 +
                 xstart + glyph->minx;
 
             /* Added code to adjust src pointer for pixmaps to
@@ -1865,10 +1878,10 @@ SDL_Surface *TTF_RenderUTF8_Blended(TTF_Font *font,
     return(textbuf);
 }
 
-SDL_Surface *TTF_RenderUNICODE_Blended(TTF_Font *font,
+Uint8 *TTF_RenderUNICODE_Blended(TTF_Font *font,
                 const Uint16 *text, Uint32 fg)
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -1885,9 +1898,9 @@ SDL_Surface *TTF_RenderUNICODE_Blended(TTF_Font *font,
 }
 
 
-SDL_Surface *TTF_RenderText_Blended_Wrapped(TTF_Font *font, const char *text, Uint32 fg, Uint32 wrapLength)
+Uint8 *TTF_RenderText_Blended_Wrapped(TTF_Font *font, const char *text, Uint32 fg, Uint32 wrapLength)
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -1914,13 +1927,13 @@ static int CharacterIsDelimiter(char c, const char *delimiters)
     return 0;
 }
 
-SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
+Uint8 *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
                                     const char *text, Uint32 fg, Uint32 wrapLength)
 {
     int first;
     int xstart;
     int width, height;
-    SDL_Surface *textbuf;
+    Uint8 *textbuf;
     Uint32 alpha;
     Uint32 pixel;
     Uint8 *src;
@@ -2025,7 +2038,7 @@ SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
     }
 
     /* Create the target surface */
-    textbuf = SDL_CreateRGBSurface(SDL_SWSURFACE,
+    textbuf = TTF_CreateRGBSurface(
             (numLines > 1) ? wrapLength : width,
             height * numLines + (lineSpace * (numLines - 1)),
             32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
@@ -2037,18 +2050,18 @@ SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
         return(NULL);
     }
 
-    rowSize = textbuf->pitch/4 * height;
+    rowSize = fn_p(textbuf)/4 * height;
 
     /* Adding bound checking to avoid all kinds of memory corruption errors
      that may occur. */
-    dst_check = (Uint32*)textbuf->pixels + textbuf->pitch/4 * textbuf->h;
+    dst_check = (Uint32*)(textbuf + 8) + fn_p(textbuf)/4 * fn_h(textbuf);
 
     /* check kerning */
     use_kerning = FT_HAS_KERNING( font->face ) && font->kerning;
 
     /* Load and render each character */
     pixel = fg & 0x00FFFFFF;
-    SDL_FillRect(textbuf, NULL, pixel); /* Initialize with fg and 0 alpha */
+    TTF_FillRect(textbuf, pixel); /* Initialize with fg and 0 alpha */
 
     for ( line = 0; line < numLines; line++ ) {
         if ( strLines ) {
@@ -2066,7 +2079,7 @@ SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
             error = Find_Glyph(font, c, CACHED_METRICS|CACHED_PIXMAP);
             if ( error ) {
                 TTF_SetFTError("Couldn't find glyph", error);
-                SDL_FreeSurface( textbuf );
+                free( textbuf );
                 return NULL;
             }
             glyph = font->current;
@@ -2095,11 +2108,11 @@ SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
                 if ( row+glyph->yoffset < 0 ) {
                     continue;
                 }
-                if ( row+glyph->yoffset >= textbuf->h ) {
+                if ( row+glyph->yoffset >= fn_h(textbuf) ) {
                     continue;
                 }
-                dst =  ((Uint32*)textbuf->pixels + rowSize * line) +
-                (row+glyph->yoffset) * textbuf->pitch/4 +
+                dst =  ((Uint32*)(textbuf + 8) + rowSize * line) +
+                (row+glyph->yoffset) * fn_p(textbuf)/4 +
                 xstart + glyph->minx;
 
                 /* Added code to adjust src pointer for pixmaps to
@@ -2141,10 +2154,10 @@ SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
     return(textbuf);
 }
 
-SDL_Surface *TTF_RenderUNICODE_Blended_Wrapped(TTF_Font *font, const Uint16* text,
+Uint8 *TTF_RenderUNICODE_Blended_Wrapped(TTF_Font *font, const Uint16* text,
                                                Uint32 fg, Uint32 wrapLength)
 {
-    SDL_Surface *surface = NULL;
+    Uint8 *surface = NULL;
     Uint8 *utf8;
 
     TTF_CHECKPOINTER(text, NULL);
@@ -2160,7 +2173,7 @@ SDL_Surface *TTF_RenderUNICODE_Blended_Wrapped(TTF_Font *font, const Uint16* tex
     return surface;
 }
 
-SDL_Surface *TTF_RenderGlyph_Blended(TTF_Font *font, Uint16 ch, Uint32 fg)
+Uint8 *TTF_RenderGlyph_Blended(TTF_Font *font, Uint16 ch, Uint32 fg)
 {
     Uint16 ucs2[2] = { ch, 0 };
     Uint8 utf8[4];

@@ -27,8 +27,8 @@
 #ifndef _UTTF_H
 #define _UTTF_H
 
-//#include "SDL.h"
-#include "begin_code.h"
+#define DECLSPEC __attribute__ ((visibility("default")))
+#define SDLCALL
 
 /* Set up for C function definitions, even when using C++ */
 #ifdef __cplusplus
@@ -44,7 +44,21 @@ extern "C" {
 #define Uint32 uint32_t
 #define Sint32 int32_t
 #define Sint64 int64_t
-#define SDL_Surface Uint8
+#define fn_w(ptr) (((uint16_t*)ptr)[0])
+#define fn_h(ptr) (((uint16_t*)ptr)[1])
+#define fn_d(ptr) (((uint16_t*)ptr)[2])
+#define fn_p(ptr) (((uint16_t*)ptr)[3])
+#define fn_set_w(ptr, w) { ((uint16_t*)ptr)[0] = w; }
+#define fn_set_h(ptr, h) { ((uint16_t*)ptr)[1] = h; }
+#define fn_set_d(ptr, d) { ((uint16_t*)ptr)[2] = d; }
+#define fn_set_p(ptr, p) { ((uint16_t*)ptr)[3] = p; }
+#define fn_to_sdl_surface(ptr) SDL_CreateRGBSurfaceFrom((void*)((Uint8*)((Uint8*)ptr + 8)), fn_w(ptr), fn_h(ptr), fn_d(ptr), fn_p(ptr), 0,0,0,0 )
+#define cl_g(color) (((color & 0x0000FF00) >> 8) & 0xFF)
+#define cl_r(color) (((color & 0x00FF0000) >> 16) & 0xFF)
+#define cl_b(color) (((color & 0x000000FF) & 0xFF))
+#define cl_a(color) (((color & 0xFF000000) >> 24) & 0xFF)
+
+//0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
 /* This function tells the library whether UNICODE text is generally
    byteswapped.  A UNICODE BOM character in a string will override
@@ -57,6 +71,8 @@ typedef struct _TTF_Font TTF_Font;
 
 /* Initialize the TTF engine - returns 0 if successful, -1 on error */
 extern DECLSPEC int SDLCALL TTF_Init(void);
+
+extern DECLSPEC char* SDLCALL TTF_GetError(void);
 
 /* Open a font file and create a font of the specified point size.
  * Some .fon fonts will have several sizes embedded in the file, so the
@@ -136,11 +152,11 @@ extern DECLSPEC int SDLCALL TTF_SizeUNICODE(TTF_Font *font, const Uint16 *text, 
    to the text color.
    This function returns the new surface, or NULL if there was an error.
 */
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderText_Solid(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderText_Solid(TTF_Font *font,
                 const char *text, Uint32 fg);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUTF8_Solid(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUTF8_Solid(TTF_Font *font,
                 const char *text, Uint32 fg);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Solid(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUNICODE_Solid(TTF_Font *font,
                 const Uint16 *text, Uint32 fg);
 
 /* Create an 8-bit palettized surface and render the given glyph at
@@ -150,7 +166,7 @@ extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Solid(TTF_Font *font,
    centering in the X direction, and aligned normally in the Y direction.
    This function returns the new surface, or NULL if there was an error.
 */
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderGlyph_Solid(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderGlyph_Solid(TTF_Font *font,
                     Uint16 ch, Uint32 fg);
 
 /* Create an 8-bit palettized surface and render the given text at
@@ -158,11 +174,11 @@ extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderGlyph_Solid(TTF_Font *font,
    while other pixels have varying degrees of the foreground color.
    This function returns the new surface, or NULL if there was an error.
 */
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderText_Shaded(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderText_Shaded(TTF_Font *font,
                 const char *text, Uint32 fg, Uint32 bg);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUTF8_Shaded(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUTF8_Shaded(TTF_Font *font,
                 const char *text, Uint32 fg, Uint32 bg);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Shaded(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUNICODE_Shaded(TTF_Font *font,
                 const Uint16 *text, Uint32 fg, Uint32 bg);
 
 /* Create an 8-bit palettized surface and render the given glyph at
@@ -172,18 +188,18 @@ extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Shaded(TTF_Font *font,
    direction, and aligned normally in the Y direction.
    This function returns the new surface, or NULL if there was an error.
 */
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderGlyph_Shaded(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderGlyph_Shaded(TTF_Font *font,
                 Uint16 ch, Uint32 fg, Uint32 bg);
 
 /* Create a 32-bit ARGB surface and render the given text at high quality,
    using alpha blending to dither the font with the given color.
    This function returns the new surface, or NULL if there was an error.
 */
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderText_Blended(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderText_Blended(TTF_Font *font,
                 const char *text, Uint32 fg);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUTF8_Blended(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUTF8_Blended(TTF_Font *font,
                 const char *text, Uint32 fg);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Blended(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUNICODE_Blended(TTF_Font *font,
                 const Uint16 *text, Uint32 fg);
 
 
@@ -193,11 +209,11 @@ extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Blended(TTF_Font *font,
    if it extends beyond wrapLength in pixels.
    This function returns the new surface, or NULL if there was an error.
 */
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderText_Blended_Wrapped(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderText_Blended_Wrapped(TTF_Font *font,
                 const char *text, Uint32 fg, Uint32 wrapLength);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
                 const char *text, Uint32 fg, Uint32 wrapLength);
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Blended_Wrapped(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderUNICODE_Blended_Wrapped(TTF_Font *font,
                 const Uint16 *text, Uint32 fg, Uint32 wrapLength);
 
 /* Create a 32-bit ARGB surface and render the given glyph at high quality,
@@ -206,7 +222,7 @@ extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderUNICODE_Blended_Wrapped(TTF_Font
    direction, and aligned normally in the Y direction.
    This function returns the new surface, or NULL if there was an error.
 */
-extern DECLSPEC SDL_Surface * SDLCALL TTF_RenderGlyph_Blended(TTF_Font *font,
+extern DECLSPEC Uint8 * SDLCALL TTF_RenderGlyph_Blended(TTF_Font *font,
                         Uint16 ch, Uint32 fg);
 
 /* For compatibility with previous versions, here are the old functions */
@@ -233,6 +249,4 @@ extern DECLSPEC int TTF_GetFontKerningSize(TTF_Font *font, int prev_index, int i
 #ifdef __cplusplus
 }
 #endif
-#include "close_code.h"
-#undef SDL_Surface
 #endif /* _UTTF_H */

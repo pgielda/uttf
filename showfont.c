@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     SDL_Window *window;
     SDL_Renderer *renderer;
     TTF_Font *font;
-    SDL_Surface *text;
+    Uint8 *text;
     Scene scene;
     int ptsize;
     int i, done;
@@ -220,14 +220,16 @@ int main(int argc, char *argv[])
 
     if( dump ) {
         for( i = 48; i < 123; i++ ) {
-            SDL_Surface* glyph = NULL;
+            Uint8* glyph = NULL;
 
             glyph = TTF_RenderGlyph_Shaded( font, i, SDLColorToUint32(*forecol), SDLColorToUint32(*backcol) );
 
             if( glyph ) {
                 char outname[64];
                 sprintf( outname, "glyph-%d.bmp", i );
-                SDL_SaveBMP( glyph, outname );
+		SDL_Surface *sdl_glyph = fn_to_sdl_surface(glyph);
+                SDL_SaveBMP( sdl_glyph, outname );
+		SDL_FreeSurface(sdl_glyph);
             }
 
         }
@@ -250,10 +252,26 @@ int main(int argc, char *argv[])
     if ( text != NULL ) {
         scene.captionRect.x = 4;
         scene.captionRect.y = 4;
-        scene.captionRect.w = text->w;
-        scene.captionRect.h = text->h;
-        scene.caption = SDL_CreateTextureFromSurface(renderer, text);
-        SDL_FreeSurface(text);
+        scene.captionRect.w = fn_w(text);
+        scene.captionRect.h = fn_h(text);
+	SDL_Surface *sdl_text = fn_to_sdl_surface(text);
+	printf("surf is here! %s\n", __func__);
+            SDL_Palette *palette = sdl_text->format->palette;
+	Uint32 fg = SDLColorToUint32(*forecol);
+	Uint32 bg = SDLColorToUint32(*backcol);
+    int rdiff = cl_r(fg) - cl_r(bg);
+    int gdiff = cl_g(fg) - cl_g(bg);
+    int bdiff = cl_b(fg) - cl_b(bg);
+
+    for ( int index = 0; index < 256; ++index ) {
+        palette->colors[index].r = cl_r(bg) + (index*rdiff) / (255);
+        palette->colors[index].g = cl_g(bg) + (index*gdiff) / (255);
+        palette->colors[index].b = cl_b(bg) + (index*bdiff) / (255);
+    }
+
+        scene.caption = SDL_CreateTextureFromSurface(renderer, sdl_text);
+	SDL_FreeSurface(sdl_text);
+        free(text);
     }
 
     /* Render and center the message */
@@ -301,13 +319,27 @@ int main(int argc, char *argv[])
         TTF_CloseFont(font);
         cleanup(2);
     }
-    scene.messageRect.x = (WIDTH - text->w)/2;
-    scene.messageRect.y = (HEIGHT - text->h)/2;
-    scene.messageRect.w = text->w;
-    scene.messageRect.h = text->h;
-    scene.message = SDL_CreateTextureFromSurface(renderer, text);
+    scene.messageRect.x = (WIDTH - fn_w(text))/2;
+    scene.messageRect.y = (HEIGHT - fn_h(text))/2;
+    scene.messageRect.w = fn_w(text);
+    scene.messageRect.h = fn_h(text);
+    SDL_Surface *sdl_text = fn_to_sdl_surface(text);
+    printf("surf is here %s\n", __func__);
+            SDL_Palette *palette = sdl_text->format->palette;
+        Uint32 fg = SDLColorToUint32(*forecol);
+        Uint32 bg = SDLColorToUint32(*backcol);
+    int rdiff = cl_r(fg) - cl_r(bg);
+    int gdiff = cl_g(fg) - cl_g(bg);
+    int bdiff = cl_b(fg) - cl_b(bg);
+
+    for ( int index = 0; index < 256; ++index ) {
+        palette->colors[index].r = cl_r(bg) + (index*rdiff) / (255);
+        palette->colors[index].g = cl_g(bg) + (index*gdiff) / (255);
+        palette->colors[index].b = cl_b(bg) + (index*bdiff) / (255);
+    }
+    scene.message = SDL_CreateTextureFromSurface(renderer, sdl_text);
     printf("Font is generally %d big, and string is %hd big\n",
-                        TTF_FontHeight(font), (short)text->h);
+                        TTF_FontHeight(font), (short)(fn_h(text)));
 
     draw_scene(renderer, &scene);
 
@@ -322,10 +354,10 @@ int main(int argc, char *argv[])
         }
         switch (event.type) {
             case SDL_MOUSEBUTTONDOWN:
-                scene.messageRect.x = event.button.x - text->w/2;
-                scene.messageRect.y = event.button.y - text->h/2;
-                scene.messageRect.w = text->w;
-                scene.messageRect.h = text->h;
+                scene.messageRect.x = event.button.x - fn_w(text)/2;
+                scene.messageRect.y = event.button.y - fn_h(text)/2;
+                scene.messageRect.w = fn_w(text);
+                scene.messageRect.h = fn_h(text);
                 draw_scene(renderer, &scene);
                 break;
 
@@ -337,7 +369,8 @@ int main(int argc, char *argv[])
                 break;
         }
     }
-    SDL_FreeSurface(text);
+    SDL_FreeSurface(sdl_text);
+    free(text);
     TTF_CloseFont(font);
     SDL_DestroyTexture(scene.caption);
     SDL_DestroyTexture(scene.message);
