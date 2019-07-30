@@ -39,6 +39,8 @@ extern "C" {
 #define UNICODE_BOM_NATIVE  0xFEFF
 #define UNICODE_BOM_SWAPPED 0xFFFE
 
+#include <stdint.h>
+
 #define Uint8 uint8_t
 #define Uint16 uint16_t
 #define Uint32 uint32_t
@@ -57,6 +59,7 @@ extern "C" {
 #define cl_r(color) (((color & 0x00FF0000) >> 16) & 0xFF)
 #define cl_b(color) (((color & 0x000000FF) & 0xFF))
 #define cl_a(color) (((color & 0xFF000000) >> 24) & 0xFF)
+
 
 //0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 

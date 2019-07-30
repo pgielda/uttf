@@ -35,12 +35,11 @@
 
 #include "uttf.h"
 
-#include "SDL.h"
-
 Uint8 *TTF_CreateRGBSurface(int width, int heigth, int depth, int unused0, int unused1, int unused2, int unused3) {
         int pitch = ((width % 4) == 0) ? width : (width + (4 - (width % 4)));
 	pitch *= (depth / 8);
 	Uint8* fn_surf = (Uint8*)malloc(8+pitch*heigth);
+	memset(fn_surf, 0, 8+pitch*heigth);
         fn_set_w(fn_surf, width);
         fn_set_h(fn_surf, heigth);
 	fn_set_d(fn_surf, depth);
@@ -1976,7 +1975,7 @@ Uint8 *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
             return(NULL);
         }
 
-        strlcpy(str, text, str_len+1);
+        strncpy(str, text, str_len+1);
         tok = str;
         end = str + str_len;
         do {
